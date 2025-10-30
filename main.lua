@@ -47,14 +47,14 @@ function MenuLib.new(title, pos, size)
 	self.Offset = Vector2.new()
 
 	self.Gui = Inst("ScreenGui", {
-		Name = "MoonLib",
+		Name = "CheatLib",
 		ResetOnSpawn = false,
 		IgnoreGuiInset = true
 	}, LocalPlayer:WaitForChild("PlayerGui"))
 
 	self.Frame = Inst("Frame", {
-		Size = size or UDim2.new(0, 420, 0, 320),
-		Position = pos or UDim2.new(0.5, -210, 0.5, -160),
+		Size = size or UDim2.new(0, 450, 0, 350),
+		Position = pos or UDim2.new(0.5, -225, 0.5, -175),
 		BackgroundColor3 = Theme.Background,
 		BorderSizePixel = 0,
 		ClipsDescendants = true
@@ -74,10 +74,10 @@ function MenuLib.new(title, pos, size)
 		Size = UDim2.new(1, -80, 1, 0),
 		Position = UDim2.new(0, 12, 0, 0),
 		BackgroundTransparency = 1,
-		Text = title or "Moon",
+		Text = title or "Cheat UI",
 		TextColor3 = Theme.Text,
 		Font = Theme.Font,
-		TextSize = Theme.FontSize,
+		TextSize = Theme.FontSize + 2,
 		TextXAlignment = Enum.TextXAlignment.Left
 	}, self.TitleBar)
 
@@ -88,7 +88,7 @@ function MenuLib.new(title, pos, size)
 		Text = "×",
 		TextColor3 = Theme.Text,
 		Font = Theme.Font,
-		TextSize = 18
+		TextSize = 20
 	}, self.TitleBar)
 
 	self.Close.MouseButton1Click:Connect(function()
@@ -102,11 +102,16 @@ function MenuLib.new(title, pos, size)
 		Text = "−",
 		TextColor3 = Theme.Text,
 		Font = Theme.Font,
-		TextSize = 18
+		TextSize = 20
 	}, self.TitleBar)
 
 	self.Minimize.MouseButton1Click:Connect(function()
-		Tween(self.Frame, {Size = UDim2.new(0, self.Frame.Size.X.Offset, 0, 36)})
+		if self.Frame.Size.Y.Offset > 36 then
+			self.MinSize = self.Frame.Size
+			Tween(self.Frame, {Size = UDim2.new(0, self.Frame.Size.X.Offset, 0, 36)})
+		else
+			Tween(self.Frame, {Size = self.MinSize or UDim2.new(0, 450, 0, 350)})
+		end
 	end)
 
 	self.TabBar = Inst("Frame", {
@@ -117,8 +122,8 @@ function MenuLib.new(title, pos, size)
 	}, self.Frame)
 
 	self.Content = Inst("ScrollingFrame", {
-		Size = UDim2.new(1, -12, 1, -84),
-		Position = UDim2.new(0, 6, 0, 78),
+		Size = UDim2.new(1, -12, 1, -72),
+		Position = UDim2.new(0, 6, 0, 72),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 4,
@@ -132,19 +137,19 @@ function MenuLib.new(title, pos, size)
 		HorizontalAlignment = Enum.HorizontalAlignment.Center
 	}, self.Content)
 
-	self.Content:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+	self.Layout.Changed:Connect(function()
 		self.Content.CanvasSize = UDim2.new(0, 0, 0, self.Layout.AbsoluteContentSize.Y + 20)
 	end)
 
 	self.TitleBar.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			self.Drag = true
 			self.Offset = input.Position - self.Frame.AbsolutePosition
 		end
 	end)
 
-	self.TitleBar.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			self.Drag = false
 		end
 	end)
@@ -169,7 +174,7 @@ function MenuLib:AddTab(name)
 	tab.Name = name
 	tab.Elements = {}
 	tab.Button = Inst("TextButton", {
-		Size = UDim2.new(0, 110, 1, 0),
+		Size = UDim2.new(0, 120, 1, 0),
 		BackgroundColor3 = Theme.Background,
 		Text = name,
 		TextColor3 = Theme.Text,
@@ -200,16 +205,53 @@ end
 function MenuLib:SelectTab(tab)
 	if self.CurrentTab then
 		self.CurrentTab.Button.BackgroundColor3 = Theme.Background
+		for _, el in ipairs(self.CurrentTab.Elements) do el.Visible = false end
 	end
 	self.CurrentTab = tab
 	tab.Button.BackgroundColor3 = Theme.Accent
-	for _, el in ipairs(self.Elements) do el.Visible = false end
 	for _, el in ipairs(tab.Elements) do el.Visible = true end
+	self.Layout:ApplyLayout()
 end
 
-function MenuLib:AddButton(tab, text, callback)
+function MenuLib:AddSection(container, name)
+	local section = Inst("Frame", {
+		Size = UDim2.new(1, -16, 0, 0),
+		BackgroundColor3 = Theme.Border,
+		BorderSizePixel = 0,
+		Visible = false
+	}, self.Content)
+
+	Inst("UICorner", {CornerRadius = Theme.Corner}, section)
+
+	local title = Inst("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 24),
+		BackgroundTransparency = 1,
+		Text = name,
+		TextColor3 = Theme.Accent,
+		Font = Theme.Font,
+		TextSize = Theme.FontSize + 1,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextWrapped = true
+	}, section)
+
+	local secLayout = Inst("UIListLayout", {
+		Padding = Theme.Padding,
+		SortOrder = Enum.SortOrder.LayoutOrder
+	}, section)
+
+	secLayout.Changed:Connect(function()
+		section.Size = UDim2.new(1, -16, 0, secLayout.AbsoluteContentSize.Y + 24 + Theme.Padding.Offset * 2)
+	end)
+
+	table.insert(container.Elements, section)
+	table.insert(self.Elements, section)
+	return section
+end
+
+function MenuLib:AddButton(container, text, callback)
+	local parent = (container.Elements and self.Content) or container
 	local btn = Inst("TextButton", {
-		Size = UDim2.new(1, -16, 0, 32),
+		Size = UDim2.new(1, 0, 0, 32),
 		BackgroundColor3 = Theme.Border,
 		Text = text,
 		TextColor3 = Theme.Text,
@@ -217,7 +259,7 @@ function MenuLib:AddButton(tab, text, callback)
 		TextSize = Theme.FontSize,
 		BorderSizePixel = 0,
 		Visible = false
-	}, self.Content)
+	}, parent)
 
 	Inst("UICorner", {CornerRadius = Theme.Corner}, btn)
 
@@ -238,18 +280,21 @@ function MenuLib:AddButton(tab, text, callback)
 		if callback then callback() end
 	end)
 
-	table.insert(tab.Elements, btn)
+	if container.Elements then
+		table.insert(container.Elements, btn)
+	end
 	table.insert(self.Elements, btn)
 	return btn
 end
 
-function MenuLib:AddToggle(tab, text, default, callback)
+function MenuLib:AddToggle(container, text, default, callback)
+	local parent = (container.Elements and self.Content) or container
 	local frame = Inst("Frame", {
-		Size = UDim2.new(1, -16, 0, 32),
+		Size = UDim2.new(1, 0, 0, 32),
 		BackgroundColor3 = Theme.Border,
 		BorderSizePixel = 0,
 		Visible = false
-	}, self.Content)
+	}, parent)
 
 	Inst("UICorner", {CornerRadius = Theme.Corner}, frame)
 
@@ -283,9 +328,10 @@ function MenuLib:AddToggle(tab, text, default, callback)
 	Inst("UICorner", {CornerRadius = UDim.new(1, 0)}, circle)
 
 	local state = default
+	callback(state)
 
 	frame.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			state = not state
 			Tween(toggle, {BackgroundColor3 = state and Theme.Accent or Theme.Background})
 			Tween(circle, {Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)})
@@ -293,23 +339,26 @@ function MenuLib:AddToggle(tab, text, default, callback)
 		end
 	end)
 
-	table.insert(tab.Elements, frame)
+	if container.Elements then
+		table.insert(container.Elements, frame)
+	end
 	table.insert(self.Elements, frame)
 	return frame
 end
 
-function MenuLib:AddSlider(tab, text, min, max, default, callback)
+function MenuLib:AddSlider(container, text, min, max, default, callback)
+	local parent = (container.Elements and self.Content) or container
 	local frame = Inst("Frame", {
-		Size = UDim2.new(1, -16, 0, 50),
+		Size = UDim2.new(1, 0, 0, 50),
 		BackgroundColor3 = Theme.Border,
 		BorderSizePixel = 0,
 		Visible = false
-	}, self.Content)
+	}, parent)
 
 	Inst("UICorner", {CornerRadius = Theme.Corner}, frame)
 
 	local label = Inst("TextLabel", {
-		Size = UDim2.new(1, -20, 0, 20),
+		Size = UDim2.new(1, -60, 0, 20),
 		Position = UDim2.new(0, 10, 0, 5),
 		BackgroundTransparency = 1,
 		Text = text,
@@ -360,49 +409,55 @@ function MenuLib:AddSlider(tab, text, min, max, default, callback)
 
 	local function update(pos)
 		local percent = math.clamp((pos.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
-		local val = math.floor(min + percent * (max - min))
+		local val = min + percent * (max - min)
 		fill.Size = UDim2.new(percent, 0, 1, 0)
 		knob.Position = UDim2.new(percent, -8, 0.5, -8)
-		valueLabel.Text = tostring(val)
+		valueLabel.Text = string.format("%.2f", val)
 		if callback then callback(val) end
 		return val
 	end
 
-	knob.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+	update(Vector2.new(bar.AbsolutePosition.X + (default - min) / (max - min) * bar.AbsoluteSize.X, 0))
+
+	bar.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			dragging = true
+			update(input.Position)
 		end
 	end)
 
-	knob.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			dragging = false
 		end
 	end)
 
 	UserInputService.InputChanged:Connect(function(input)
-		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
 			update(input.Position)
 		end
 	end)
 
-	table.insert(tab.Elements, frame)
+	if container.Elements then
+		table.insert(container.Elements, frame)
+	end
 	table.insert(self.Elements, frame)
 	return frame
 end
 
-function MenuLib:AddDropdown(tab, text, options, default, callback)
+function MenuLib:AddDropdown(container, text, options, default, callback)
+	local parent = (container.Elements and self.Content) or container
 	local frame = Inst("Frame", {
-		Size = UDim2.new(1, -16, 0, 36),
+		Size = UDim2.new(1, 0, 0, 32),
 		BackgroundColor3 = Theme.Border,
 		BorderSizePixel = 0,
 		Visible = false
-	}, self.Content)
+	}, parent)
 
 	Inst("UICorner", {CornerRadius = Theme.Corner}, frame)
 
 	local label = Inst("TextLabel", {
-		Size = UDim2.new(1, -60, 1, 0),
+		Size = UDim2.new(0.5, 0, 1, 0),
 		Position = UDim2.new(0, 10, 0, 0),
 		BackgroundTransparency = 1,
 		Text = text,
@@ -423,8 +478,8 @@ function MenuLib:AddDropdown(tab, text, options, default, callback)
 	}, frame)
 
 	local selected = Inst("TextLabel", {
-		Size = UDim2.new(1, -40, 1, 0),
-		Position = UDim2.new(0, 10, 0, 0),
+		Size = UDim2.new(0.5, -40, 1, 0),
+		Position = UDim2.new(0.5, 0, 0, 0),
 		BackgroundTransparency = 1,
 		Text = options[default] or options[1],
 		TextColor3 = Theme.Accent,
@@ -433,53 +488,106 @@ function MenuLib:AddDropdown(tab, text, options, default, callback)
 		TextXAlignment = Enum.TextXAlignment.Right
 	}, frame)
 
-	local list = Inst("Frame", {
-		Size = UDim2.new(1, -16, 0, #options * 30),
-		Position = UDim2.new(0, 0, 1, 4),
+	local listFrame = Inst("ScrollingFrame", {
+		Size = UDim2.new(1, 0, 0, math.min(#options * 32, 160)),
+		Position = UDim2.new(0, 0, 1, 2),
 		BackgroundColor3 = Theme.Background,
 		BorderSizePixel = 0,
 		Visible = false,
-		ZIndex = 10
+		ZIndex = 10,
+		ScrollBarThickness = 4,
+		CanvasSize = UDim2.new(0, 0, 0, #options * 32)
 	}, frame)
 
-	Inst("UICorner", {CornerRadius = Theme.Corner}, list)
+	Inst("UICorner", {CornerRadius = Theme.Corner}, listFrame)
 
-	local layout = Inst("UIListLayout", {
+	local listLayout = Inst("UIListLayout", {
 		Padding = UDim.new(0, 0),
 		SortOrder = Enum.SortOrder.LayoutOrder
-	}, list)
+	}, listFrame)
 
 	local open = false
 
 	frame.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			open = not open
-			list.Visible = open
+			listFrame.Visible = open
 			Tween(arrow, {Rotation = open and 180 or 0})
 		end
 	end)
 
 	for i, opt in ipairs(options) do
 		local btn = Inst("TextButton", {
-			Size = UDim2.new(1, 0, 0, 30),
+			Size = UDim2.new(1, 0, 0, 32),
 			BackgroundTransparency = 1,
 			Text = opt,
 			TextColor3 = Theme.Text,
 			Font = Theme.Font,
 			TextSize = Theme.FontSize,
 			ZIndex = 11
-		}, list)
+		}, listFrame)
 
 		btn.MouseButton1Click:Connect(function()
 			selected.Text = opt
 			open = false
-			list.Visible = false
+			listFrame.Visible = false
 			Tween(arrow, {Rotation = 0})
 			if callback then callback(i, opt) end
 		end)
 	end
 
-	table.insert(tab.Elements, frame)
+	if callback then callback(default, options[default] or options[1]) end
+
+	if container.Elements then
+		table.insert(container.Elements, frame)
+	end
+	table.insert(self.Elements, frame)
+	return frame
+end
+
+function MenuLib:AddTextbox(container, text, default, callback)
+	local parent = (container.Elements and self.Content) or container
+	local frame = Inst("Frame", {
+		Size = UDim2.new(1, 0, 0, 32),
+		BackgroundColor3 = Theme.Border,
+		BorderSizePixel = 0,
+		Visible = false
+	}, parent)
+
+	Inst("UICorner", {CornerRadius = Theme.Corner}, frame)
+
+	local label = Inst("TextLabel", {
+		Size = UDim2.new(0.5, 0, 1, 0),
+		Position = UDim2.new(0, 10, 0, 0),
+		BackgroundTransparency = 1,
+		Text = text,
+		TextColor3 = Theme.Text,
+		Font = Theme.Font,
+		TextSize = Theme.FontSize,
+		TextXAlignment = Enum.TextXAlignment.Left
+	}, frame)
+
+	local textbox = Inst("TextBox", {
+		Size = UDim2.new(0.5, -20, 1, -8),
+		Position = UDim2.new(0.5, 10, 0, 4),
+		BackgroundColor3 = Theme.Background,
+		Text = default or "",
+		TextColor3 = Theme.Text,
+		Font = Theme.Font,
+		TextSize = Theme.FontSize,
+		BorderSizePixel = 0,
+		ClearTextOnFocus = false
+	}, frame)
+
+	Inst("UICorner", {CornerRadius = Theme.Corner}, textbox)
+
+	textbox.FocusLost:Connect(function(enter)
+		if enter and callback then callback(textbox.Text) end
+	end)
+
+	if container.Elements then
+		table.insert(container.Elements, frame)
+	end
 	table.insert(self.Elements, frame)
 	return frame
 end
